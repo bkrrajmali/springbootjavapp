@@ -17,7 +17,7 @@ pipeline {
                 sh 'mvn validate'
             }
         }
-        stage ('Compile with Maven
+        stage ('Compile with Maven')
         {
             steps {
                 sh 'mvn compile'
