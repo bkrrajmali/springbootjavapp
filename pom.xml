@@ -92,7 +92,7 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
+            <dependency
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson.version}</version>

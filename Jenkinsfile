@@ -1,11 +1,20 @@
 pipeline {
     agent any
+    tools {
+        maven 'maven'
+    }
     
     stages {
         stage ('Checkout from Git') 
         {
             steps {
                 git branch: 'prod' , url: 'https://github.com/bkrrajmali/springbootjavapp.git'
+            }
+        }
+        stage ('Validate with Maven') 
+        {
+            steps {
+                sh 'mvn validate'
             }
         }
     }
