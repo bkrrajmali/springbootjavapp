@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
-    name: petclinic
+metadata:
+  name: petclinic
 spec:
-    replicas: 2
-    selector:
-      matchlabels:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
         app: petclinic
-    template:
-      metadata:
-        labels:
-          app: petclinic
-      spec:
-        imagePullSecrets:
-          - name:  acr-secret
-        containers:
-          - name: petclinic
-            image: democontainerregi.azurecr.io/springbootjavaapp:latest
-            ports:
-              - containerPort: 8080
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: petclinic
+          image: democontainerregi.azurecr.io/petclinic:latest
+          ports:
+            - containerPort: 8080
