@@ -38,7 +38,7 @@ pipeline {
                         -Dsonar.organization=bkrrajmali \
                         -Dsonar.projectKey=sprinbootjavaapp \
                         -Dsonar.projectName=sprinbootjavaapp \
-                        -Dsonar.jave.binaries=target/classes
+                        -Dsonar.java.binaries=target/classes
                         '''
 
                 }
