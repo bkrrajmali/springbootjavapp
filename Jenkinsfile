@@ -54,13 +54,12 @@ pipeline {
                 sh 'mvn package'
             }
         }
-    }
     stage('Docker Build') {
         steps {
             sh '''
             docker build -t $ACR_SERVER/$IMAGE_NAME:$IMAGE_TAG .
             '''
             }
-        }
+          }
     }
 }
