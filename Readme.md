@@ -1,0 +1,8 @@
+Install sonarqube plugin
+
+add below to pom.xml
+<plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.11.0.3922</version>
+            </plugin>
