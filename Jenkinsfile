@@ -29,5 +29,20 @@ pipeline {
                 sh 'mvn test'
             }
         }
+        stage ('SonarQube Analysis')
+        {
+            steps {
+                withSonarQubeEnv('sonar-server') {
+                    sh '''
+                    mvn sonar:sonar \
+                        -Dsonar.organization=bkrrajmali \
+                        -Dsonar.projectKey=sprinbootjavaapp \
+                        -Dsonar.projectName=sprinbootjavaapp \
+                        -Dsonar.jave.binaries=target/classes
+                        '''
+
+                }
+            }
+        }
     }
 }
