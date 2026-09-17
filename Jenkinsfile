@@ -9,7 +9,7 @@ pipeline {
         ACR_SERVER       = 'democontainerregi.azurecr.io'
         IMAGE_NAME       = 'springbootjavaapp'
         IMAGE_TAG        = 'latest'
-        DEPLOYMENT_NAME  = 'springbootjavaapp'
+        DEPLOYMENT_NAME  = 'petclinic'
         K8S_NAMESPACE    = 'default'
         EMAIL_FROM       = 'dogga.chaitanya@gmail.com'
         EMAIL_RECIPIENTS = 'clouddevopswithkrishna@gmail.com'
