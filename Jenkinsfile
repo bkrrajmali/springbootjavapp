@@ -7,6 +7,9 @@ pipeline {
         ACR_SERVER = 'democontainerregi.azurecr.io'
         IMAGE_NAME = 'springbootjavaapp'
         IMAGE_TAG = 'latest'
+        EMAIL_FROM ='dogga.chaitanya@gmail.com'
+        EMAIL_RECIPIENTS = 'clouddevopswithkrishna@gmail.com'
+
     }
     stages {
         stage ('Checkout from Git') 
@@ -80,15 +83,67 @@ pipeline {
                }
             }
         } 
-        // stage ('Deploy to AKS') {
-        //     steps {
-        //         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-        //             sh '''
-        //             kubectl apply -f k8s/deployment.yaml
-        //             kubectl apply -f k8s/service.yaml
-        //             '''
-        //         }
-        //     }
-        // }
+        stage('Create ACR PULL Secret') {
+        steps {
+            withCredentials([usernamePassword(credentialsId: 'acr-creds', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS'),
+            file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+            
+            sh '''
+                kubectl create secret docker-registry acr-secret \
+	                    --docker-server=$ACR_SERVER \
+	                    --docker-username=$ACR_USER \
+	                    --docker-password=$ACR_PASS
+            '''
+               }
+            }
+        } 
+        stage ('Deploy to AKS') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                    '''
+                }
+            }
+        }
+
+        post {
+        success {
+            script {
+                echo "Deployment verified successfully. Sending success email via Brevo API."
+                withCredentials([string(credentialsId: 'brevo-api-key', variable: 'BREVO_API_KEY')]) {
+                    sh """
+                    curl --fail -s -X POST https://api.brevo.com/v3/smtp/email \\
+                      -H "api-key: \$BREVO_API_KEY" \\
+                      -H "Content-Type: application/json" \\
+                      -d '{
+                        "sender": {"email": "${EMAIL_FROM}"},
+                        "to": [{"email": "${EMAIL_RECIPIENTS}"}],
+                        "subject": "SUCCESS: Jenkins Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        "textContent": "Good news!\\n\\nThe pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} completed successfully, and the deployment ${DEPLOYMENT_NAME} rolled out successfully to AKS.\\n\\nBuild URL: ${env.BUILD_URL}"
+                      }' || true
+                    """
+                }
+            }
+        }
+        failure {
+            script {
+                echo "Pipeline or deployment verification failed. Sending failure email via Brevo API."
+                withCredentials([string(credentialsId: 'brevo-api-key', variable: 'BREVO_API_KEY')]) {
+                    sh """
+                    curl --fail -s -X POST https://api.brevo.com/v3/smtp/email \\
+                      -H "api-key: \$BREVO_API_KEY" \\
+                      -H "Content-Type: application/json" \\
+                      -d '{
+                        "sender": {"email": "${EMAIL_FROM}"},
+                        "to": [{"email": "${EMAIL_RECIPIENTS}"}],
+                        "subject": "FAILED: Jenkins Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        "textContent": "The pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} FAILED.\\n\\nThis could be due to a build/deploy step failing, or the deployment ${DEPLOYMENT_NAME} failing to roll out successfully in AKS (check the Verify Deployment Rollout stage logs).\\n\\nBuild URL: ${env.BUILD_URL}\\nConsole Log: ${env.BUILD_URL}console"
+                      }' || true
+                    """
+                }
+            }
+        }
     }
 }
