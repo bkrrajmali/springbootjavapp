@@ -10,6 +10,7 @@ pipeline {
         IMAGE_NAME       = 'springbootjavaapp'
         IMAGE_TAG        = 'latest'
         DEPLOYMENT_NAME  = 'springbootjavaapp'
+        K8S_NAMESPACE    = 'default'
         EMAIL_FROM       = 'dogga.chaitanya@gmail.com'
         EMAIL_RECIPIENTS = 'clouddevopswithkrishna@gmail.com'
     }
@@ -37,6 +38,11 @@ pipeline {
         stage('Test with Maven') {
             steps {
                 sh 'mvn test'
+            }
+            post {
+                always {
+                    junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+                }
             }
         }
 
@@ -102,7 +108,8 @@ pipeline {
                             --docker-server=$ACR_SERVER \
                             --docker-username="$ACR_USER" \
                             --docker-password="$ACR_PASS" \
-                            --dry-run=client -o yaml | kubectl apply -f -
+                            -n $K8S_NAMESPACE \
+                            --dry-run=client -o yaml | kubectl apply -n $K8S_NAMESPACE -f -
                     '''
                 }
             }
@@ -112,8 +119,8 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
+                        kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml
+                        kubectl apply -n $K8S_NAMESPACE -f k8s/service.yaml
                     '''
                 }
             }
@@ -122,7 +129,10 @@ pipeline {
         stage('Verify Deployment Rollout') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh 'kubectl rollout status deployment/$DEPLOYMENT_NAME --timeout=180s'
+                    sh '''
+                        kubectl get deploy -n $K8S_NAMESPACE
+                        kubectl rollout status deployment/$DEPLOYMENT_NAME -n $K8S_NAMESPACE --timeout=180s
+                    '''
                 }
             }
         }
@@ -134,7 +144,8 @@ pipeline {
                 echo "Deployment verified successfully. Sending success email via Brevo API."
                 withCredentials([string(credentialsId: 'brevo-api-key', variable: 'BREVO_API_KEY')]) {
                     sh """
-                        curl --fail -s -X POST https://api.brevo.com/v3/smtp/email \\
+                        HTTP_CODE=\$(curl -s -o /tmp/brevo.out -w '%{http_code}' \\
+                          -X POST https://api.brevo.com/v3/smtp/email \\
                           -H "api-key: \$BREVO_API_KEY" \\
                           -H "Content-Type: application/json" \\
                           -d '{
@@ -142,7 +153,10 @@ pipeline {
                             "to": [{"email": "${EMAIL_RECIPIENTS}"}],
                             "subject": "SUCCESS: Jenkins Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                             "textContent": "Good news!\\n\\nThe pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} completed successfully, and the deployment ${DEPLOYMENT_NAME} rolled out successfully to AKS.\\n\\nBuild URL: ${env.BUILD_URL}"
-                          }' || true
+                          }')
+                        echo "Brevo responded with HTTP \$HTTP_CODE"
+                        cat /tmp/brevo.out || true
+                        echo ""
                     """
                 }
             }
@@ -153,7 +167,8 @@ pipeline {
                 echo "Pipeline or deployment verification failed. Sending failure email via Brevo API."
                 withCredentials([string(credentialsId: 'brevo-api-key', variable: 'BREVO_API_KEY')]) {
                     sh """
-                        curl --fail -s -X POST https://api.brevo.com/v3/smtp/email \\
+                        HTTP_CODE=\$(curl -s -o /tmp/brevo.out -w '%{http_code}' \\
+                          -X POST https://api.brevo.com/v3/smtp/email \\
                           -H "api-key: \$BREVO_API_KEY" \\
                           -H "Content-Type: application/json" \\
                           -d '{
@@ -161,10 +176,17 @@ pipeline {
                             "to": [{"email": "${EMAIL_RECIPIENTS}"}],
                             "subject": "FAILED: Jenkins Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                             "textContent": "The pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} FAILED.\\n\\nThis could be due to a build/deploy step failing, or the deployment ${DEPLOYMENT_NAME} failing to roll out successfully in AKS (check the Verify Deployment Rollout stage logs).\\n\\nBuild URL: ${env.BUILD_URL}\\nConsole Log: ${env.BUILD_URL}console"
-                          }' || true
+                          }')
+                        echo "Brevo responded with HTTP \$HTTP_CODE"
+                        cat /tmp/brevo.out || true
+                        echo ""
                     """
                 }
             }
+        }
+
+        always {
+            echo "Build result: ${currentBuild.currentResult}"
         }
     }
 }
